@@ -52,8 +52,8 @@ where
     YEAR(record_date)= 2024 and
     association_object_id is not null and
     association_object_type IS NOT NULL and
+    // TODO update this to only be files?
     project_id IS NOT NULL;
-
 
 
 
@@ -65,7 +65,7 @@ with all_nodes_before_date as (
     from
         synapse_data_warehouse.synapse_event.node_event
     where
-        created_on < DATE('2025-08-21') and
+        modified_on < DATE('2025-08-21') and
         node_type = 'file' 
     QUALIFY ROW_NUMBER() OVER (
         PARTITION BY id
@@ -101,10 +101,10 @@ with adtr_snapshot_in_time as (
         synapse_data_warehouse.synapse_event.node_event
     where
         project_id = 2580853 and 
-        created_on < DATE('2025-08-01')
+        modified_on < DATE('2025-08-01')
     QUALIFY ROW_NUMBER() OVER (
             PARTITION BY id
-            ORDER BY change_timestamp DESC, snapshot_timestamp DESC
+            ORDER BY modified_on DESC, snapshot_timestamp DESC
         ) = 1
 )
 SELECT
@@ -132,30 +132,17 @@ where
     project_id = 2580853 and 
     record_date < DATE('2025-08-01');
 
-select
-    count(distinct user_id),
-    min(record_date),
-    max(record_date)
-from
-    synapse_data_warehouse.synapse_event.objectdownload_event
-where
-    association_object_id is not null and
-    association_object_type IS NOT NULL and
-    project_id = 2580853 and 
-    YEAR(record_date) = 2024;
-
-
-
-    
+// Upload csv from get_access_requirements.py
 // access approval distribution
 select
     state,
-    count(*)
+    count(*) as number_of_access_approvals
 from
     sage.scidata.access_approvals
 group by
     state;
 
+// Number of renewal submissions
 SELECT
     SUM(
         CASE
@@ -164,25 +151,6 @@ SELECT
         END
     ) AS total_true
 FROM sage.scidata.access_approvals;
-
-
-SELECT
-    count(distinct submittedby)
-FROM sage.scidata.access_approvals
-where access_approvals.isrenewalsubmission;
-
-
-select count(distinct accessrequirementid) from sage.scidata.access_approvals;
-
-
-select min(submittedon), max(submittedon) from sage.scidata.access_approvals;
-
-select
-    -- SNOWFLAKE.CORTEX.SUMMARIZE(rejectedreason)
-    SNOWFLAKE.CORTEX.ai_summarize_agg(rejectedreason)
-from
-    sage.scidata.access_approvals
-where rejectedreason is not null;
 
 
 SELECT
@@ -203,15 +171,14 @@ JOIN
     ON ACCESS_APPROVALS.ACCESSREQUIREMENTID = ACCESSREQUIREMENT_LATEST.ID;
 
 
-
+// Institution distribution of access approvals
 select
     ACCESS_APPROVALS.researchProjectSnapshot:institution as institution,
-    count(*)
+    count(*) as number_of_access_approvals
 from
     SAGE.SCIDATA.ACCESS_APPROVALS
 group by
     institution;
-
 
 
 SELECT
@@ -228,7 +195,6 @@ JOIN
     ON ACCESS_APPROVALS.ACCESSREQUIREMENTID = ACCESSREQUIREMENT_LATEST.ID
 group by
     ACCESSREQUIREMENT_LATEST.NAME
-
 
 
 // unused metrics
