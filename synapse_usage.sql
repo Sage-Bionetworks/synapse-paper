@@ -52,6 +52,21 @@ where
     // TODO update this to only be files?
     project_id IS NOT NULL;
 
+// In 2024, there were 43,510,660 download events across 5,029,700 Synapse files, an average of 119,207 file download events per day
+// Only include file entity downloads
+select
+    count(*) as number_of_downloads,
+    count(distinct file_handle_id) as number_of_files,
+    number_of_downloads/365 as avg_downloads_per_day
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    YEAR(record_date)= 2024 and
+    association_object_id is not null and
+    association_object_type = 'FileEntity' and
+    // TODO update this to only be files?
+    project_id IS NOT NULL;
+
 // Total number of files in Synapse as of 08/01/2025
 with node_latest_before_2025_08_01 as (
     SELECT
@@ -116,7 +131,6 @@ from
 
     
 // Table 4: storage volume before 08/01/2025
-
 // ADTR
 with adtr_snapshot_in_time as (
     select
@@ -165,16 +179,50 @@ from
     synapse_data_warehouse.synapse_event.objectdownload_event
 where
     association_object_id is not null and
-    association_object_type IS NOT NULL and
-    project_id = 2580853 and 
-    record_date < DATE('2025-08-01');
+    association_object_type = 'FileEntity' and
+    record_date < DATE('2025-08-01') and
+    project_id = 2580853;
 
 // NF-OSI
 // CCKP
 // dHealth
 // ARK
 // Project GENIE
+select
+    count(distinct user_id) as number_of_unique_users,
+    count(*) as number_of_downloads,
+    min(record_date),
+    max(record_date)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    association_object_id is not null and
+    association_object_type = 'FileEntity' and
+    record_date < DATE('2025-08-01') and
+    project_id in (
+        7222066,
+        27056172
+    );
 // ELITE
+select
+    count(distinct user_id) as number_of_unique_users,
+    count(*) as number_of_downloads,
+    min(record_date),
+    max(record_date)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    association_object_id is not null and
+    association_object_type = 'FileEntity' and
+    record_date < DATE('2025-08-01') and
+    project_id in (
+        27229419,
+        52072575,
+        52072939,
+        52237024,
+        52642213,
+        53124793
+    );
 
 
 
