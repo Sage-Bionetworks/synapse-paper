@@ -23,8 +23,6 @@ NF-OSI — 9605444
 NF-OSI — 9605700
 NF-OSI - 9606557 (no requests as of 2025-09-05)
 NF-OSI - 9606593 (no requests as of 2025-09-05)
-NF-OSI - 9606610 (no requests as of 2025-09-05)
-NF-OSI - 9606614 (no requests as of 2025-09-05)
 """
 
 import json
@@ -91,8 +89,6 @@ def main():
         9603055,
         9605913,
         9606644,
-        9606614,
-        9606610,
         9606593,
         9606557,
         9606541,
