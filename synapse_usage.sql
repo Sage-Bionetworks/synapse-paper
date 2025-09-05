@@ -177,6 +177,47 @@ join
 // CCKP
 // dHealth
 // ARK
+with node_latest_before_2025_08_01 as (
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), project_latest as (
+    select
+        *
+    from
+        node_latest_before_2025_08_01
+    WHERE
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        ) and
+        project_id in (
+            26710600
+        )
+)
+SELECT
+    count(distinct project_latest.id) as total_entities,
+    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 30), 2) AS TOTAL_SIZE_IN_GIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 9), 2) AS TOTAL_SIZE_IN_GB
+FROM
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+join
+    project_latest
+    on file_latest.id = project_latest.file_handle_id;
+
+
+
 // Project GENIE
 with node_latest_before_2025_08_01 as (
     select
@@ -359,6 +400,7 @@ where
     -- association_object_type is not null and
     association_object_type = 'FileEntity' and
     record_date < DATE('2025-08-01');
+
 // dHealth
 with get_view_in_time as (
     // Get the view of the project as of a certain date.
