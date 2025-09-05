@@ -184,9 +184,101 @@ where
     project_id = 2580853;
 
 // NF-OSI
+
+with get_view_in_time as (
+    // Get the view of the project as of a certain date.
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        id = 52677631 and
+        modified_on < DATE('2025-08-01')
+    order by modified_on desc LIMIT 1
+), nf_projects as (
+    select
+        cast(scopes.value as integer) as project_id
+    from
+        get_view_in_time,
+        lateral flatten(input => get_view_in_time.scope_ids) scopes
+)
+select
+    count(distinct user_id),
+    min(record_date),
+    max(record_date)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+join
+    nf_projects on
+    nf_projects.project_id = objectdownload_event.project_id
+where
+    association_object_id is not null and
+    -- association_object_type is not null and
+    association_object_type = 'FileEntity' and
+    record_date < DATE('2025-08-01');
+
 // CCKP
+with get_view_in_time as (
+    // Get the view of the project as of a certain date.
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        id = 27210848 and
+        modified_on < DATE('2025-08-01')
+    order by modified_on desc LIMIT 1
+), projects as (
+    select
+        cast(scopes.value as integer) as project_id
+    from
+        get_view_in_time,
+        lateral flatten(input => get_view_in_time.scope_ids) scopes
+)
+select
+    count(distinct user_id),
+    min(record_date),
+    max(record_date)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+join
+    projects on
+    projects.project_id = objectdownload_event.project_id
+where
+    association_object_id is not null and
+    -- association_object_type is not null and
+    association_object_type = 'FileEntity' and
+    record_date < DATE('2025-08-01');
 // dHealth
 // ARK
+select
+    count(distinct user_id) as number_of_unique_users,
+    count(*) as number_of_downloads,
+    min(record_date),
+    max(record_date)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    association_object_id is not null and
+    association_object_type = 'FileEntity' and
+    record_date < DATE('2025-08-01') and
+    project_id in (
+        26710600
+    );
+select
+    count(distinct user_id) as number_of_unique_users,
+    count(*) as number_of_downloads,
+    min(record_date),
+    max(record_date)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    association_object_id is not null and
+    association_object_type is not null and
+    record_date < DATE('2025-08-01') and
+    project_id in (
+        26710600
+    );
 // Project GENIE
 select
     count(distinct user_id) as number_of_unique_users,
