@@ -77,7 +77,8 @@ with node_latest_before_2025_08_01 as (
         synapse_data_warehouse.synapse_event.node_event
     where
         modified_on < date('2025-08-01') and
-        snapshot_date >= date('2025-08-01') - interval '30 days'
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
     qualify row_number() over (
         partition by id
         order by change_timestamp desc, snapshot_timestamp desc
@@ -95,25 +96,31 @@ where not (
 
 // Synapse’s data governance infrastructure section
 // number of is_restricted / is_controlled / is_public combinations
-with all_nodes_before_date as (
+
+with node_latest_before_2025_08_01 as (
     select
-        id, is_public, is_restricted, is_controlled, CHANGE_TYPE, BENEFACTOR_ID, parent_id
+        *
     from
         synapse_data_warehouse.synapse_event.node_event
     where
-        modified_on < DATE('2025-08-21') and
-        node_type = 'file' 
-    QUALIFY ROW_NUMBER() OVER (
-        PARTITION BY id
-        ORDER BY modified_on DESC, snapshot_timestamp DESC
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
     ) = 1
 ), all_non_deleted_nodes_before_date as (
     select
         *
-    from 
-        all_nodes_before_date
+    from
+        node_latest_before_2025_08_01
     WHERE
-        NOT (CHANGE_TYPE = 'DELETE' OR BENEFACTOR_ID = '1681355' OR PARENT_ID = '1681355') -- 1681355 is 
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        )
 )
 select
     COUNT(*) AS total_files,
@@ -129,30 +136,38 @@ from
     
 // Table 4: storage volume before 08/01/2025
 // ADTR
-with adtr_snapshot_in_time as (
+
+with node_latest_before_2025_08_01 as (
     select
         *
     from
         synapse_data_warehouse.synapse_event.node_event
     where
-        modified_on < DATE('2025-09-04')
-    QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY id
-            ORDER BY modified_on DESC, snapshot_timestamp DESC
-        ) = 1
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
 ), adtr_latest as (
     select
         *
     from
-        adtr_snapshot_in_time
+        node_latest_before_2025_08_01
     WHERE
         project_id = 2580853 and
-        NOT (adtr_snapshot_in_time.CHANGE_TYPE = 'DELETE' OR adtr_snapshot_in_time.BENEFACTOR_ID = '1681355' OR adtr_snapshot_in_time.PARENT_ID = '1681355') -- 1681355 is the synID of the trash can on Synapse
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        )
 )
 SELECT
     count(distinct adtr_latest.id) as total_entities,
     count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TB
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
 FROM
     SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
 join
@@ -163,8 +178,90 @@ join
 // dHealth
 // ARK
 // Project GENIE
-// ELITE
+with node_latest_before_2025_08_01 as (
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), project_latest as (
+    select
+        *
+    from
+        node_latest_before_2025_08_01
+    WHERE
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        ) and
+        project_id in (
+            7222066,
+            27056172
+        )
+)
+SELECT
+    count(distinct project_latest.id) as total_entities,
+    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 30), 2) AS TOTAL_SIZE_IN_GIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 9), 2) AS TOTAL_SIZE_IN_GB
+FROM
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+join
+    project_latest
+    on file_latest.id = project_latest.file_handle_id;
 
+// ELITE
+with node_latest_before_2025_08_01 as (
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), elite_latest as (
+    select
+        *
+    from
+        node_latest_before_2025_08_01
+    WHERE
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        ) and
+        project_id in (
+            27229419,
+            52072575,
+            52072939,
+            52237024,
+            52642213,
+            53124793
+        )
+)
+SELECT
+    count(distinct elite_latest.id) as total_entities,
+    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
+FROM
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+join
+    elite_latest
+    on file_latest.id = elite_latest.file_handle_id;
 
 // Table 4: unique data downloaders 1/1/2022 - 7/31/2025
 // ADTR
@@ -379,7 +476,7 @@ where
 
 
 
-// Upload csv from get_access_requirements.py
+// Upload csv fromget_access_requirements.py
 // access approval distribution
 select
     state,
@@ -397,7 +494,7 @@ SELECT
             ELSE 0
         END
     ) AS total_true
-FROM sage.scidata.access_approvals;
+fromsage.scidata.access_approvals;
 
 // Detailed access approval table
 SELECT
