@@ -174,8 +174,117 @@ join
     adtr_latest
     on file_latest.id = adtr_latest.file_handle_id;
 // NF-OSI
+
+with get_view_in_time as (
+    // Get the view of the project as of a certain date.
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        id = 52677631 and
+        modified_on < DATE('2025-08-01')
+    order by modified_on desc LIMIT 1
+), nf_projects as (
+    select
+        cast(scopes.value as integer) as project_id
+    from
+        get_view_in_time,
+        lateral flatten(input => get_view_in_time.scope_ids) scopes
+), node_latest_before_2025_08_01 as (
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), project_latest as (
+    select
+        *
+    from
+        node_latest_before_2025_08_01
+    join
+        nf_projects
+        on node_latest_before_2025_08_01.project_id = nf_projects.project_id
+    WHERE
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        )
+)
+SELECT
+    count(distinct project_latest.id) as total_entities,
+    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
+FROM
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+join
+    project_latest
+    on file_latest.id = project_latest.file_handle_id;
 // CCKP
 // dHealth
+with get_view_in_time as (
+    // Get the view of the project as of a certain date.
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        id = 27210848 and
+        modified_on < DATE('2025-08-01')
+    order by modified_on desc LIMIT 1
+), projects as (
+    select
+        cast(scopes.value as integer) as project_id
+    from
+        get_view_in_time,
+        lateral flatten(input => get_view_in_time.scope_ids) scopes
+), node_latest_before_2025_08_01 as (
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), project_latest as (
+    select
+        *
+    from
+        node_latest_before_2025_08_01
+    join
+        projects
+        on node_latest_before_2025_08_01.project_id = projects.project_id
+    WHERE
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        )
+)
+SELECT
+    count(distinct project_latest.id) as total_entities,
+    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
+FROM
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+join
+    project_latest
+    on file_latest.id = project_latest.file_handle_id;
 // ARK
 with node_latest_before_2025_08_01 as (
     select
@@ -208,14 +317,13 @@ with node_latest_before_2025_08_01 as (
 SELECT
     count(distinct project_latest.id) as total_entities,
     count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 30), 2) AS TOTAL_SIZE_IN_GIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 9), 2) AS TOTAL_SIZE_IN_GB
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
 FROM
     SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
 join
     project_latest
     on file_latest.id = project_latest.file_handle_id;
-
 
 
 // Project GENIE
@@ -319,7 +427,6 @@ where
     project_id = 2580853;
 
 // NF-OSI
-
 with get_view_in_time as (
     // Get the view of the project as of a certain date.
     select
