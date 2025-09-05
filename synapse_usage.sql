@@ -42,6 +42,7 @@ from
 select
     count(*) as number_of_downloads,
     count(distinct file_handle_id) as number_of_files,
+    count(distinct user_id) as number_of_unique_users,
     number_of_downloads/365 as avg_downloads_per_day
 from
     synapse_data_warehouse.synapse_event.objectdownload_event
@@ -57,6 +58,7 @@ where
 select
     count(*) as number_of_downloads,
     count(distinct file_handle_id) as number_of_files,
+    count(distinct user_id) as number_of_unique_users,
     number_of_downloads/365 as avg_downloads_per_day
 from
     synapse_data_warehouse.synapse_event.objectdownload_event
@@ -69,32 +71,27 @@ where
 
 // Total number of files in Synapse as of 08/01/2025
 with node_latest_before_2025_08_01 as (
-    SELECT
+    select
         *
-    FROM
+    from
         synapse_data_warehouse.synapse_event.node_event
-    WHERE
-        snapshot_timestamp >= date('2025-08-01') - interval '30 day'
-        and snapshot_timestamp < date('2025-08-01')
-    QUALIFY row_number() over (
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days'
+    qualify row_number() over (
         partition by id
         order by change_timestamp desc, snapshot_timestamp desc
     ) = 1
 )
-SELECT
-    count(*) AS total_files
-FROM
-    node_latest_before_2025_08_01
-WHERE NOT (
-    change_type = 'DELETE'
-    OR benefactor_id = '1681355'
-    OR parent_id = '1681355'
-);
-
 select
     count(*)
 from
-    synapse_data_warehouse.synapse.node_latest;
+    node_latest_before_2025_08_01
+where not (
+    change_type = 'DELETE'
+    or benefactor_id = '1681355'
+    or parent_id     = '1681355'
+);
 
 // Synapse’s data governance infrastructure section
 // number of is_restricted / is_controlled / is_public combinations
@@ -228,6 +225,22 @@ with get_view_in_time as (
         id = 27210848 and
         modified_on < DATE('2025-08-01')
     order by modified_on desc LIMIT 1
+)
+    select
+        cast(scopes.value as integer) as project_id
+    from
+        get_view_in_time,
+        lateral flatten(input => get_view_in_time.scope_ids) scopes;
+with get_view_in_time as (
+    // Get the view of the project as of a certain date.
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        id = 27210848 and
+        modified_on < DATE('2025-08-01')
+    order by modified_on desc LIMIT 1
 ), projects as (
     select
         cast(scopes.value as integer) as project_id
@@ -250,6 +263,54 @@ where
     association_object_type = 'FileEntity' and
     record_date < DATE('2025-08-01');
 // dHealth
+with get_view_in_time as (
+    // Get the view of the project as of a certain date.
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        id = 27210848 and
+        modified_on < DATE('2025-08-01')
+    order by modified_on desc LIMIT 1
+)
+    select
+        cast(scopes.value as integer) as project_id
+    from
+        get_view_in_time,
+        lateral flatten(input => get_view_in_time.scope_ids) scopes;
+with get_view_in_time as (
+    // Get the view of the project as of a certain date.
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        id = 21994970 and
+        modified_on < DATE('2025-08-01')
+    order by modified_on desc LIMIT 1
+), projects as (
+    select
+        cast(scopes.value as integer) as project_id
+    from
+        get_view_in_time,
+        lateral flatten(input => get_view_in_time.scope_ids) scopes
+)
+select
+    count(distinct user_id),
+    min(record_date),
+    max(record_date)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+join
+    projects on
+    projects.project_id = objectdownload_event.project_id
+where
+    association_object_id is not null and
+    -- association_object_type is not null and
+    association_object_type = 'FileEntity' and
+    record_date < DATE('2025-08-01');
+
 // ARK
 select
     count(distinct user_id) as number_of_unique_users,
