@@ -127,6 +127,7 @@ select
     SUM(CASE WHEN is_public THEN 1 ELSE 0 END) AS num_public_files,
     SUM(CASE WHEN is_public and is_controlled and not is_restricted THEN 1 ELSE 0 END) AS num_public_and_only_controlled,
     SUM(CASE WHEN is_public and is_restricted and not is_controlled THEN 1 ELSE 0 END) AS num_public_and_only_clickwrap, 
+    SUM(CASE WHEN is_public and (is_controlled or is_restricted) THEN 1 ELSE 0 END) AS num_public_and_controlled_access,
     SUM(CASE WHEN is_public and is_restricted and is_controlled THEN 1 ELSE 0 END) AS num_public_and_controlled_and_clickwrap, 
     SUM(CASE WHEN is_public and is_controlled THEN 1 ELSE 0 END) AS num_public_and_controlled,
     SUM(CASE WHEN is_public and is_restricted THEN 1 ELSE 0 END) AS num_public_and_clickwrap,
@@ -674,6 +675,7 @@ group by
 // Number of access approvals by access requirement
 SELECT
     ACCESSREQUIREMENT_LATEST.NAME,
+    ACCESSREQUIREMENT_LATEST.ID,
     count(*) as number_of_access_approvals
     -- modifiedon - submittedon as timetoresponse
 FROM
@@ -682,8 +684,22 @@ JOIN
     SYNAPSE_DATA_WAREHOUSE.SYNAPSE.ACCESSREQUIREMENT_LATEST
     ON ACCESS_APPROVALS.ACCESSREQUIREMENTID = ACCESSREQUIREMENT_LATEST.ID
 group by
+    ACCESSREQUIREMENT_LATEST.ID,
     ACCESSREQUIREMENT_LATEST.NAME;
 
+select
+    ID, NAME
+from
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.ACCESSREQUIREMENT_LATEST
+where
+    id in (
+        9606614,
+        9606610,
+        9606593,
+        9606557,
+        9606091,
+        9606506
+    );
 
 // unused metrics
 // Looking at chat users (not used in paper)
