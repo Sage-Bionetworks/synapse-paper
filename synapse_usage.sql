@@ -504,6 +504,45 @@ join
     elite_latest
     on file_latest.id = elite_latest.file_handle_id;
 
+// AMP-ALS
+
+with node_latest_before_2025_08_01 as (
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), adtr_latest as (
+    select
+        *
+    from
+        node_latest_before_2025_08_01
+    WHERE
+        project_id = 2580853 and
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        )
+)
+SELECT
+    count(distinct adtr_latest.id) as total_entities,
+    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
+FROM
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+join
+    adtr_latest
+    on file_latest.id = adtr_latest.file_handle_id;
+
 // Table 4: unique data downloaders 1/1/2022 - 7/31/2025
 // ADTR
 select
