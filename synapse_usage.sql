@@ -1,40 +1,73 @@
 // petabytes uploaded over time (Figure 1)
 WITH year_storage AS (
-  SELECT
-    DATE_TRUNC('YEAR', created_on) AS created_on_year,
-    SUM(content_size) / power(2, 50) AS size_in_pib
-  FROM
-    synapse_data_warehouse.synapse.file_latest
-  GROUP BY
-    created_on_year
+    SELECT
+        DATE_TRUNC('YEAR', created_on) AS created_on_year,
+        SUM(content_size) / power(10, 15) AS size_in_pb
+    FROM
+        synapse_data_warehouse.synapse.file_latest
+    WHERE
+        file_latest.created_on < DATE('2025-08-01') and
+        not is_preview and
+        status != 'ARCHIVED'
+    GROUP BY
+        created_on_year
 )
 SELECT
-  YEAR(created_on_year) as created_on_year,
-  SUM(size_in_pib) OVER (ORDER BY created_on_year) AS total_storage_pib
+    YEAR(created_on_year) as created_on_year,
+    SUM(size_in_pb) OVER (ORDER BY created_on_year) AS total_storage_pb
 FROM
-  year_storage
+    year_storage
 ORDER BY
-  created_on_year ASC;
+    created_on_year ASC;
 
-
-// Number of unique Synapse account holders 2012-2024 (Figure 5)
-with user_created_on as (
+// petabytes data available now
+with node_latest_before_2025_08_01 as (
     select
-        YEAR(created_on) as created_on_yr,
-        count(*) as number_of_users_created_accounts
+        *
     from
-        synapse_data_warehouse.synapse.userprofile_latest
-    where 
-        created_on is not null and
-        created_on_yr < 2025
-    group by
-        created_on_yr
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), all_non_deleted_nodes_before_date as (
+    select
+        *
+    from
+        node_latest_before_2025_08_01
+    where not (
+        change_type = 'DELETE'
+        or benefactor_id = '1681355'
+        or parent_id     = '1681355'
+    )
 )
+SELECT
+    SUM(content_size) / power(10, 15) AS size_in_pb
+FROM
+    synapse_data_warehouse.synapse.file_latest
+INNER JOIN
+    all_non_deleted_nodes_before_date
+    on file_latest.id = all_non_deleted_nodes_before_date.file_handle_id;
+    
+
+
+
+// Number of synapse accounts created per year 2012-2024 (Figure 5)
 select
-    created_on_yr,
-    sum(number_of_users_created_accounts) over (order by created_on_yr asc rows between unbounded preceding and current row) as number_of_users
+    YEAR(created_on) as created_on_yr,
+    count(*) as number_of_users_created_accounts
 from
-    user_created_on;
+    synapse_data_warehouse.synapse.userprofile_latest
+where
+    created_on is not null and
+    created_on_yr < 2025
+group by
+    created_on_yr
+
 
 
 // number of downloads
@@ -230,7 +263,65 @@ FROM
 join
     project_latest
     on file_latest.id = project_latest.file_handle_id;
+
+
 // CCKP
+
+with get_view_in_time as (
+    // Get the view of the project as of a certain date.
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        id = 69808225 and
+        modified_on < DATE('2025-09-14')
+    order by modified_on desc LIMIT 1
+), projects as (
+    select
+        cast(scopes.value as integer) as project_id
+    from
+        get_view_in_time,
+        lateral flatten(input => get_view_in_time.scope_ids) scopes
+), node_latest_before_2025_08_01 as (
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < date('2025-08-01') and
+        snapshot_date >= date('2025-08-01') - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), project_latest as (
+    select
+        *
+    from
+        node_latest_before_2025_08_01
+    join
+        projects
+        on node_latest_before_2025_08_01.project_id = projects.project_id
+    WHERE
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        )
+)
+SELECT
+    count(distinct project_latest.id) as total_entities,
+    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
+FROM
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+join
+    project_latest
+    on file_latest.id = project_latest.file_handle_id;
+
 // dHealth
 with get_view_in_time as (
     // Get the view of the project as of a certain date.
@@ -468,15 +559,26 @@ with get_view_in_time as (
     from
         synapse_data_warehouse.synapse_event.node_event
     where
-        id = 27210848 and
-        modified_on < DATE('2025-08-01')
+        id = 69808225 and
+        modified_on < DATE('2025-09-14')
     order by modified_on desc LIMIT 1
-)
+    -- The view was created on 09/12/2025, but the projects within this project view were created before 2025
+), projects as (
     select
         cast(scopes.value as integer) as project_id
     from
         get_view_in_time,
-        lateral flatten(input => get_view_in_time.scope_ids) scopes;
+        lateral flatten(input => get_view_in_time.scope_ids) scopes
+)
+select
+    projects.*, node_latest.name
+from
+    synapse_data_warehouse.synapse.node_latest
+right join
+    projects on
+    node_latest.id = projects.project_id;
+
+
 with get_view_in_time as (
     // Get the view of the project as of a certain date.
     select
@@ -484,9 +586,10 @@ with get_view_in_time as (
     from
         synapse_data_warehouse.synapse_event.node_event
     where
-        id = 27210848 and
-        modified_on < DATE('2025-08-01')
+        id = 69808225 and
+        modified_on < DATE('2025-09-14')
     order by modified_on desc LIMIT 1
+    -- The view was created on 09/12/2025, but the projects within this project view were created before 2025
 ), projects as (
     select
         cast(scopes.value as integer) as project_id
