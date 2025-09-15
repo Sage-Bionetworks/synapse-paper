@@ -519,13 +519,13 @@ with node_latest_before_2025_08_01 as (
         partition by id
         order by change_timestamp desc, snapshot_timestamp desc
     ) = 1
-), adtr_latest as (
+), project_latest as (
     select
         *
     from
         node_latest_before_2025_08_01
     WHERE
-        project_id = 2580853 and
+        project_id = 64892175 and
         NOT (
             CHANGE_TYPE = 'DELETE' OR
             BENEFACTOR_ID = '1681355' OR
@@ -533,15 +533,15 @@ with node_latest_before_2025_08_01 as (
         )
 )
 SELECT
-    count(distinct adtr_latest.id) as total_entities,
+    count(distinct project_latest.id) as total_entities,
     count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 30), 2) AS TOTAL_SIZE_IN_GIB,
+    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 9), 2) AS TOTAL_SIZE_IN_GB
 FROM
     SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
 join
-    adtr_latest
-    on file_latest.id = adtr_latest.file_handle_id;
+    project_latest
+    on file_latest.id = project_latest.file_handle_id;
 
 // Table 4: unique data downloaders 1/1/2022 - 7/31/2025
 // ADTR
