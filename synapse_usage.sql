@@ -279,7 +279,7 @@ with get_view_in_time as (
     order by modified_on desc LIMIT 1
 ), projects as (
     select
-        cast(scopes.value as integer) as project_id
+        distinct cast(scopes.value as integer) as project_id
     from
         get_view_in_time,
         lateral flatten(input => get_view_in_time.scope_ids) scopes
@@ -604,7 +604,7 @@ with get_view_in_time as (
     -- The view was created on 09/12/2025, but the projects within this project view were created before 2025
 ), projects as (
     select
-        cast(scopes.value as integer) as project_id
+        distinct cast(scopes.value as integer) as project_id
     from
         get_view_in_time,
         lateral flatten(input => get_view_in_time.scope_ids) scopes
@@ -631,7 +631,7 @@ with get_view_in_time as (
     -- The view was created on 09/12/2025, but the projects within this project view were created before 2025
 ), projects as (
     select
-        cast(scopes.value as integer) as project_id
+        distinct cast(scopes.value as integer) as project_id
     from
         get_view_in_time,
         lateral flatten(input => get_view_in_time.scope_ids) scopes
