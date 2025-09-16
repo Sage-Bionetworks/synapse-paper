@@ -843,6 +843,46 @@ where
         9606506
     );
 
+// UKB data users and volume Nov 1, 2023 - Nov 30, 2023
+select
+    count(distinct user_id)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    project_id = 51364943 and
+    record_date BETWEEN DATE('2023-10-01') AND DATE('2023-11-30');
+
+select
+    sum(file_latest.content_size) / power(10, 12) as size_in_tb
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+join
+    synapse_data_warehouse.synapse.file_latest
+    on objectdownload_event.file_handle_id = file_latest.id
+where
+    project_id = 51364943 and
+    record_date BETWEEN DATE('2023-10-01') AND DATE('2023-11-30');
+
+// UKB data users and volume 2024
+select
+    count(distinct user_id)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    project_id = 51364943 and
+    record_date BETWEEN DATE('2024-01-01') AND DATE('2024-12-31');
+
+select
+    sum(file_latest.content_size) / power(10, 12) as size_in_tb
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+join
+    synapse_data_warehouse.synapse.file_latest
+    on objectdownload_event.file_handle_id = file_latest.id
+where
+    project_id = 51364943 and
+    record_date BETWEEN DATE('2024-01-01') AND DATE('2024-12-31');
+
 // unused metrics
 // Looking at chat users (not used in paper)
 select
