@@ -1,3 +1,5 @@
+# Figure 2 plots
+# Synapse active users by country in 2024 via Google Analytics
 library(dplyr)
 library(ggplot2)
 library(sf)

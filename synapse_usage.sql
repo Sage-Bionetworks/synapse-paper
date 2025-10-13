@@ -1,4 +1,5 @@
-// petabytes uploaded to synapse before 08/01/2025
+// ABSTRACT & INTRODUCTION
+// Total petabytes uploaded to synapse that live within our servers before 08/01/2025
 with filtered_files as (
     SELECT
         CONCAT(BUCKET, '/', KEY) as S3_URL,
@@ -28,6 +29,7 @@ select
 from
     filtered_files;
 
+// ABSTRACT & INTRODUCTION
 // petabytes uploaded over time (Figure 1)
 WITH file_details AS (
     SELECT
@@ -58,7 +60,8 @@ ORDER BY
     first_upload_year;
 
 
-// Number of synapse accounts created per year 2012-2024 (Figure 5)
+// 2.2 Synapse users and data use
+// Number of synapse accounts created per year 2012-2024 (Table 2)
 select
     YEAR(created_on) as created_on_yr,
     count(*) as number_of_users_created_accounts
@@ -70,25 +73,9 @@ where
 group by
     created_on_yr
 
-
-
-// number of downloads
-// In 2024, there were 43,723,727 download events across 5,202,243 Synapse files, an average of 119,791 file download events per day
-select
-    count(*) as number_of_downloads,
-    count(distinct file_handle_id) as number_of_files,
-    count(distinct user_id) as number_of_unique_users,
-    number_of_downloads/365 as avg_downloads_per_day
-from
-    synapse_data_warehouse.synapse_event.objectdownload_event
-where
-    YEAR(record_date)= 2024 and
-    association_object_id is not null and
-    association_object_type IS NOT NULL and
-    // TODO update this to only be files?
-    project_id IS NOT NULL;
-
-// In 2024, there were 43,510,660 download events across 5,029,700 Synapse files, an average of 119,207 file download events per day
+// 2.2 Synapse users and data use
+// In 2024, there were 43,510,660 download events across 5,029,700 Synapse files,
+// an average of 119,207 file download events per day
 // Only include file entity downloads
 select
     count(*) as number_of_downloads,
@@ -104,6 +91,7 @@ where
     // TODO update this to only be files?
     project_id IS NOT NULL;
 
+// 2.2 Synapse users and data use
 // Total number of files in Synapse as of 08/01/2025
 with node_latest_before_2025_08_01 as (
     select
@@ -129,9 +117,8 @@ where not (
     or parent_id     = '1681355'
 );
 
-// Synapse’s data governance infrastructure section
+// 2.3 Synapse’s data governance infrastructure
 // number of is_restricted / is_controlled / is_public combinations
-
 with node_latest_before_2025_08_01 as (
     select
         *
@@ -169,10 +156,117 @@ select
 from
     all_non_deleted_nodes_before_date;
 
-    
+// 2.3 Synapse’s data governance infrastructure
+// Upload csv from get_access_requirements.py into snowflake
+// access approval distribution
+select
+    state,
+    count(*) as number_of_access_approvals
+from
+    sage.scidata.access_approvals
+group by
+    state;
+
+// 2.3 Synapse’s data governance infrastructure
+// Number of renewal submissions
+SELECT
+    SUM(
+        CASE
+            WHEN access_approvals.isrenewalsubmission THEN 1
+            ELSE 0
+        END
+    ) AS total_true
+fromsage.scidata.access_approvals;
+
+// 2.3 Synapse’s data governance infrastructure
+// Detailed access approval table
+SELECT
+    ACCESSREQUIREMENT_LATEST.NAME,
+    ACCESSREQUIREMENT_LATEST.CONCRETE_TYPE,
+    USERPROFILE_LATEST.USER_NAME,
+    ARRAY_SIZE(ACCESSORCHANGES) AS NUMBEROFREQUESTERS,
+    ACCESS_APPROVALS.*,
+    ACCESS_APPROVALS.researchProjectSnapshot:institution
+FROM
+    SAGE.SCIDATA.ACCESS_APPROVALS
+JOIN
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.USERPROFILE_LATEST
+    ON ACCESS_APPROVALS.SUBMITTEDBY = USERPROFILE_LATEST.ID
+JOIN
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.ACCESSREQUIREMENT_LATEST
+    ON ACCESS_APPROVALS.ACCESSREQUIREMENTID = ACCESSREQUIREMENT_LATEST.ID;
+
+// 2.3 Synapse’s data governance infrastructure
+// Institution distribution of access approvals
+select
+    ACCESS_APPROVALS.researchProjectSnapshot:institution as institution,
+    count(*) as number_of_access_approvals
+from
+    SAGE.SCIDATA.ACCESS_APPROVALS
+group by
+    institution;
+
+// 2.3 Synapse’s data governance infrastructure
+// Number of access approvals by access requirement
+SELECT
+    ACCESSREQUIREMENT_LATEST.NAME,
+    ACCESSREQUIREMENT_LATEST.ID,
+    count(*) as number_of_access_approvals
+    -- modifiedon - submittedon as timetoresponse
+FROM
+    SAGE.SCIDATA.ACCESS_APPROVALS
+JOIN
+    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.ACCESSREQUIREMENT_LATEST
+    ON ACCESS_APPROVALS.ACCESSREQUIREMENTID = ACCESSREQUIREMENT_LATEST.ID
+group by
+    ACCESSREQUIREMENT_LATEST.ID,
+    ACCESSREQUIREMENT_LATEST.NAME;
+
+// 2.4.3 The cost of reuse: data egress
+// UKB data users and volume Nov 1, 2023 - Nov 30, 2023
+select
+    count(distinct user_id)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    project_id = 51364943 and
+    record_date BETWEEN DATE('2023-10-01') AND DATE('2023-11-30');
+
+select
+    sum(file_latest.content_size) / power(10, 12) as size_in_tb
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+join
+    synapse_data_warehouse.synapse.file_latest
+    on objectdownload_event.file_handle_id = file_latest.id
+where
+    project_id = 51364943 and
+    record_date BETWEEN DATE('2023-10-01') AND DATE('2023-11-30');
+
+// 2.4.3 The cost of reuse: data egress
+// UKB data users and volume 2024
+select
+    count(distinct user_id)
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+where
+    project_id = 51364943 and
+    record_date BETWEEN DATE('2024-01-01') AND DATE('2024-12-31');
+
+select
+    sum(file_latest.content_size) / power(10, 12) as size_in_tb
+from
+    synapse_data_warehouse.synapse_event.objectdownload_event
+join
+    synapse_data_warehouse.synapse.file_latest
+    on objectdownload_event.file_handle_id = file_latest.id
+where
+    project_id = 51364943 and
+    record_date BETWEEN DATE('2024-01-01') AND DATE('2024-12-31');
+
+// 2.5.3 Portals
 // Table 4: storage volume before 08/01/2025
 // ADTR
-
 with node_latest_before_2025_08_01 as (
     select
         *
@@ -210,7 +304,6 @@ join
     adtr_latest
     on file_latest.id = adtr_latest.file_handle_id;
 // NF-OSI
-
 with get_view_in_time as (
     // Get the view of the project as of a certain date.
     select
@@ -545,6 +638,7 @@ join
     project_latest
     on file_latest.id = project_latest.file_handle_id;
 
+// 2.5.3 Portals
 // Table 4: unique data downloaders 1/1/2022 - 7/31/2025
 // ADTR
 select
@@ -767,130 +861,3 @@ where
         52642213,
         53124793
     );
-
-
-
-// Upload csv fromget_access_requirements.py
-// access approval distribution
-select
-    state,
-    count(*) as number_of_access_approvals
-from
-    sage.scidata.access_approvals
-group by
-    state;
-
-// Number of renewal submissions
-SELECT
-    SUM(
-        CASE
-            WHEN access_approvals.isrenewalsubmission THEN 1
-            ELSE 0
-        END
-    ) AS total_true
-fromsage.scidata.access_approvals;
-
-// Detailed access approval table
-SELECT
-    ACCESSREQUIREMENT_LATEST.NAME,
-    ACCESSREQUIREMENT_LATEST.CONCRETE_TYPE,
-    USERPROFILE_LATEST.USER_NAME,
-    ARRAY_SIZE(ACCESSORCHANGES) AS NUMBEROFREQUESTERS,
-    ACCESS_APPROVALS.*,
-    ACCESS_APPROVALS.researchProjectSnapshot:institution
-FROM
-    SAGE.SCIDATA.ACCESS_APPROVALS
-JOIN
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.USERPROFILE_LATEST
-    ON ACCESS_APPROVALS.SUBMITTEDBY = USERPROFILE_LATEST.ID
-JOIN
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.ACCESSREQUIREMENT_LATEST
-    ON ACCESS_APPROVALS.ACCESSREQUIREMENTID = ACCESSREQUIREMENT_LATEST.ID;
-
-// Institution distribution of access approvals
-select
-    ACCESS_APPROVALS.researchProjectSnapshot:institution as institution,
-    count(*) as number_of_access_approvals
-from
-    SAGE.SCIDATA.ACCESS_APPROVALS
-group by
-    institution;
-
-// Number of access approvals by access requirement
-SELECT
-    ACCESSREQUIREMENT_LATEST.NAME,
-    ACCESSREQUIREMENT_LATEST.ID,
-    count(*) as number_of_access_approvals
-    -- modifiedon - submittedon as timetoresponse
-FROM
-    SAGE.SCIDATA.ACCESS_APPROVALS
-JOIN
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.ACCESSREQUIREMENT_LATEST
-    ON ACCESS_APPROVALS.ACCESSREQUIREMENTID = ACCESSREQUIREMENT_LATEST.ID
-group by
-    ACCESSREQUIREMENT_LATEST.ID,
-    ACCESSREQUIREMENT_LATEST.NAME;
-
-select
-    ID, NAME
-from
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.ACCESSREQUIREMENT_LATEST
-where
-    id in (
-        9606614,
-        9606610,
-        9606593,
-        9606557,
-        9606091,
-        9606506
-    );
-
-// UKB data users and volume Nov 1, 2023 - Nov 30, 2023
-select
-    count(distinct user_id)
-from
-    synapse_data_warehouse.synapse_event.objectdownload_event
-where
-    project_id = 51364943 and
-    record_date BETWEEN DATE('2023-10-01') AND DATE('2023-11-30');
-
-select
-    sum(file_latest.content_size) / power(10, 12) as size_in_tb
-from
-    synapse_data_warehouse.synapse_event.objectdownload_event
-join
-    synapse_data_warehouse.synapse.file_latest
-    on objectdownload_event.file_handle_id = file_latest.id
-where
-    project_id = 51364943 and
-    record_date BETWEEN DATE('2023-10-01') AND DATE('2023-11-30');
-
-// UKB data users and volume 2024
-select
-    count(distinct user_id)
-from
-    synapse_data_warehouse.synapse_event.objectdownload_event
-where
-    project_id = 51364943 and
-    record_date BETWEEN DATE('2024-01-01') AND DATE('2024-12-31');
-
-select
-    sum(file_latest.content_size) / power(10, 12) as size_in_tb
-from
-    synapse_data_warehouse.synapse_event.objectdownload_event
-join
-    synapse_data_warehouse.synapse.file_latest
-    on objectdownload_event.file_handle_id = file_latest.id
-where
-    project_id = 51364943 and
-    record_date BETWEEN DATE('2024-01-01') AND DATE('2024-12-31');
-
-// unused metrics
-// Looking at chat users (not used in paper)
-select
-    count(distinct(user_id))
-from
-    synapse_data_warehouse.synapse_event.access_event
-where
-    normalized_method_signature = 'POST /agent/chat/async/start' and
-    record_date > DATE('2025-01-01');
