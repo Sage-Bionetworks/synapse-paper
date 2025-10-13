@@ -1,59 +1,61 @@
-// petabytes uploaded over time (Figure 1)
-WITH year_storage AS (
+// petabytes uploaded to synapse before 08/01/2025
+with filtered_files as (
     SELECT
-        DATE_TRUNC('YEAR', created_on) AS created_on_year,
-        SUM(content_size) / power(10, 15) AS size_in_pb
+        CONCAT(BUCKET, '/', KEY) as S3_URL,
+        CONTENT_MD5,
+        MAX(CONTENT_SIZE) as CONTENT_SIZE,
+        count(*) as number_of_files
     FROM
-        synapse_data_warehouse.synapse.file_latest
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
     WHERE
-        file_latest.created_on < DATE('2025-08-01') and
-        not is_preview and
-        status != 'ARCHIVED'
+        -- NOT STORED ON OUR SERVERS
+        BUCKET IS NOT NULL
+        -- AND
+        --  -- NOT A DELETED FILE
+        -- CHANGE_TYPE != 'DELETE'
+        AND
+        -- NOT MARKED FOR GARBAGE COLLECTION
+        STATUS != 'ARCHIVED' AND NOT IS_PREVIEW AND
+        -- UPLOADED BEFORE 08/01/2025
+        CREATED_ON < DATE('2025-08-01')
     GROUP BY
-        created_on_year
+        S3_URL, CONTENT_MD5
+    ORDER BY
+        number_of_files DESC
 )
+select
+    SUM(CONTENT_SIZE) / power(10, 15) AS size_in_pb
+from
+    filtered_files;
+
+// petabytes uploaded over time (Figure 1)
+WITH file_details AS (
+    SELECT
+        CONCAT(BUCKET, '/', KEY) AS s3_url,
+        CONTENT_MD5,
+        MAX(CONTENT_SIZE) AS content_size,
+        min(DATE_TRUNC('YEAR', CREATED_ON)) as first_upload_year
+    FROM
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+    WHERE
+        BUCKET IS NOT NULL
+        AND STATUS != 'ARCHIVED'
+        AND NOT IS_PREVIEW
+        AND CREATED_ON < DATE('2025-08-01')
+    GROUP BY
+        s3_url, CONTENT_MD5
+)
+
 SELECT
-    YEAR(created_on_year) as created_on_year,
-    SUM(size_in_pb) OVER (ORDER BY created_on_year) AS total_storage_pb
+    first_upload_year,
+    SUM(content_size) / power(10, 15) AS pb_uploaded_this_year,
+    SUM(SUM(content_size) / power(10, 15) ) OVER (ORDER BY first_upload_year) AS cumulative_pb_uploaded
 FROM
-    year_storage
+    file_details
+GROUP BY
+    first_upload_year
 ORDER BY
-    created_on_year ASC;
-
-// petabytes data available now
-with node_latest_before_2025_08_01 as (
-    select
-        *
-    from
-        synapse_data_warehouse.synapse_event.node_event
-    where
-        modified_on < date('2025-08-01') and
-        snapshot_date >= date('2025-08-01') - interval '30 days' and
-        node_type = 'file'
-    qualify row_number() over (
-        partition by id
-        order by change_timestamp desc, snapshot_timestamp desc
-    ) = 1
-), all_non_deleted_nodes_before_date as (
-    select
-        *
-    from
-        node_latest_before_2025_08_01
-    where not (
-        change_type = 'DELETE'
-        or benefactor_id = '1681355'
-        or parent_id     = '1681355'
-    )
-)
-SELECT
-    SUM(content_size) / power(10, 15) AS size_in_pb
-FROM
-    synapse_data_warehouse.synapse.file_latest
-INNER JOIN
-    all_non_deleted_nodes_before_date
-    on file_latest.id = all_non_deleted_nodes_before_date.file_handle_id;
-    
-
+    first_upload_year;
 
 
 // Number of synapse accounts created per year 2012-2024 (Figure 5)
