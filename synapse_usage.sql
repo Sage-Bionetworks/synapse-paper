@@ -280,7 +280,7 @@ with node_latest_before_2025_08_01 as (
         partition by id
         order by change_timestamp desc, snapshot_timestamp desc
     ) = 1
-), adtr_latest as (
+), project_latest as (
     select
         *
     from
@@ -292,17 +292,32 @@ with node_latest_before_2025_08_01 as (
             BENEFACTOR_ID = '1681355' OR
             PARENT_ID = '1681355'
         )
+), file_stats as (
+    SELECT
+        CONCAT(BUCKET, '/', KEY) as S3_URL,
+        CONTENT_MD5,
+        project_latest.is_public,
+        max(file_latest.content_size) AS MAX_FILE_SIZE,
+    FROM
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+    join
+        project_latest
+        on file_latest.id = project_latest.file_handle_id
+    GROUP BY
+        S3_URL, CONTENT_MD5, project_latest.is_public
 )
-SELECT
-    count(distinct adtr_latest.id) as total_entities,
-    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
-FROM
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
-join
-    adtr_latest
-    on file_latest.id = adtr_latest.file_handle_id;
+select
+    sum(max_file_size) / power(10, 12) as size_in_tb,
+    SUM(CASE WHEN is_public THEN max_file_size ELSE 0 END) / POWER(10, 12) AS public_size_tb,
+    (
+        select
+            SUM(CASE WHEN project_latest.annotations:annotations != {} and is_public THEN 1 ELSE 0 END) / count(*)
+        from
+            project_latest
+    ) as percent_annotated
+from
+    file_stats;
+
 // NF-OSI
 with get_view_in_time as (
     // Get the view of the project as of a certain date.
@@ -347,21 +362,34 @@ with get_view_in_time as (
             BENEFACTOR_ID = '1681355' OR
             PARENT_ID = '1681355'
         )
+), file_stats as (
+    SELECT
+        CONCAT(BUCKET, '/', KEY) as S3_URL,
+        CONTENT_MD5,
+        project_latest.is_public,
+        max(file_latest.content_size) AS MAX_FILE_SIZE,
+    FROM
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+    join
+        project_latest
+        on file_latest.id = project_latest.file_handle_id
+    GROUP BY
+        S3_URL, CONTENT_MD5, project_latest.is_public
 )
-SELECT
-    count(distinct project_latest.id) as total_entities,
-    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
-FROM
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
-join
-    project_latest
-    on file_latest.id = project_latest.file_handle_id;
+select
+    sum(max_file_size) / power(10, 12) as size_in_tb,
+    SUM(CASE WHEN is_public THEN max_file_size ELSE 0 END) / POWER(10, 12) AS public_size_tb,
+    (
+        select
+            SUM(CASE WHEN project_latest.annotations:annotations != {} and is_public THEN 1 ELSE 0 END) / count(*)
+        from
+            project_latest
+    ) as percent_annotated
+from
+    file_stats;
 
 
 // CCKP
-
 with get_view_in_time as (
     // Get the view of the project as of a certain date.
     select
@@ -405,17 +433,31 @@ with get_view_in_time as (
             BENEFACTOR_ID = '1681355' OR
             PARENT_ID = '1681355'
         )
+), file_stats as (
+    SELECT
+        CONCAT(BUCKET, '/', KEY) as S3_URL,
+        CONTENT_MD5,
+        project_latest.is_public,
+        max(file_latest.content_size) AS MAX_FILE_SIZE,
+    FROM
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+    join
+        project_latest
+        on file_latest.id = project_latest.file_handle_id
+    GROUP BY
+        S3_URL, CONTENT_MD5, project_latest.is_public
 )
-SELECT
-    count(distinct project_latest.id) as total_entities,
-    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
-FROM
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
-join
-    project_latest
-    on file_latest.id = project_latest.file_handle_id;
+select
+    sum(max_file_size) / power(10, 12) as size_in_tb,
+    SUM(CASE WHEN is_public THEN max_file_size ELSE 0 END) / POWER(10, 12) AS public_size_tb,
+    (
+        select
+            SUM(CASE WHEN project_latest.annotations:annotations != {} and is_public THEN 1 ELSE 0 END) / count(*)
+        from
+            project_latest
+    ) as percent_annotated
+from
+    file_stats;
 
 // dHealth
 with get_view_in_time as (
@@ -461,17 +503,31 @@ with get_view_in_time as (
             BENEFACTOR_ID = '1681355' OR
             PARENT_ID = '1681355'
         )
+), file_stats as (
+    SELECT
+        CONCAT(BUCKET, '/', KEY) as S3_URL,
+        CONTENT_MD5,
+        project_latest.is_public,
+        max(file_latest.content_size) AS MAX_FILE_SIZE,
+    FROM
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+    join
+        project_latest
+        on file_latest.id = project_latest.file_handle_id
+    GROUP BY
+        S3_URL, CONTENT_MD5, project_latest.is_public
 )
-SELECT
-    count(distinct project_latest.id) as total_entities,
-    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
-FROM
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
-join
-    project_latest
-    on file_latest.id = project_latest.file_handle_id;
+select
+    sum(max_file_size) / power(10, 12) as size_in_tb,
+    SUM(CASE WHEN is_public THEN max_file_size ELSE 0 END) / POWER(10, 12) AS public_size_tb,
+    (
+        select
+            SUM(CASE WHEN project_latest.annotations:annotations != {} and is_public THEN 1 ELSE 0 END) / count(*)
+        from
+            project_latest
+    ) as percent_annotated
+from
+    file_stats;
 // ARK
 with node_latest_before_2025_08_01 as (
     select
@@ -500,18 +556,31 @@ with node_latest_before_2025_08_01 as (
         project_id in (
             26710600
         )
+), file_stats as (
+    SELECT
+        CONCAT(BUCKET, '/', KEY) as S3_URL,
+        CONTENT_MD5,
+        project_latest.is_public,
+        max(file_latest.content_size) AS MAX_FILE_SIZE,
+    FROM
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+    join
+        project_latest
+        on file_latest.id = project_latest.file_handle_id
+    GROUP BY
+        S3_URL, CONTENT_MD5, project_latest.is_public
 )
-SELECT
-    count(distinct project_latest.id) as total_entities,
-    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
-FROM
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
-join
-    project_latest
-    on file_latest.id = project_latest.file_handle_id;
-
+select
+    sum(max_file_size) / power(10, 12) as size_in_tb,
+    SUM(CASE WHEN is_public THEN max_file_size ELSE 0 END) / POWER(10, 12) AS public_size_tb,
+    (
+        select
+            SUM(CASE WHEN project_latest.annotations:annotations != {} and is_public THEN 1 ELSE 0 END) / count(*)
+        from
+            project_latest
+    ) as percent_annotated
+from
+    file_stats;
 
 // Project GENIE
 with node_latest_before_2025_08_01 as (
@@ -542,65 +611,33 @@ with node_latest_before_2025_08_01 as (
             7222066,
             27056172
         )
+), file_stats as (
+    SELECT
+        CONCAT(BUCKET, '/', KEY) as S3_URL,
+        CONTENT_MD5,
+        project_latest.is_public,
+        max(file_latest.content_size) AS MAX_FILE_SIZE,
+    FROM
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+    join
+        project_latest
+        on file_latest.id = project_latest.file_handle_id
+    GROUP BY
+        S3_URL, CONTENT_MD5, project_latest.is_public
 )
-SELECT
-    count(distinct project_latest.id) as total_entities,
-    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 30), 2) AS TOTAL_SIZE_IN_GIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 9), 2) AS TOTAL_SIZE_IN_GB
-FROM
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
-join
-    project_latest
-    on file_latest.id = project_latest.file_handle_id;
+select
+    sum(max_file_size) / power(10, 9) as size_in_gb,
+    SUM(CASE WHEN is_public THEN max_file_size ELSE 0 END) / POWER(10, 9) AS public_size_gb,
+    (
+        select
+            SUM(CASE WHEN project_latest.annotations:annotations != {} and is_public THEN 1 ELSE 0 END) / count(*)
+        from
+            project_latest
+    ) as percent_annotated
+from
+    file_stats;
 
 // ELITE
-with node_latest_before_2025_08_01 as (
-    select
-        *
-    from
-        synapse_data_warehouse.synapse_event.node_event
-    where
-        modified_on < date('2025-08-01') and
-        snapshot_date >= date('2025-08-01') - interval '30 days' and
-        node_type = 'file'
-    qualify row_number() over (
-        partition by id
-        order by change_timestamp desc, snapshot_timestamp desc
-    ) = 1
-), elite_latest as (
-    select
-        *
-    from
-        node_latest_before_2025_08_01
-    WHERE
-        NOT (
-            CHANGE_TYPE = 'DELETE' OR
-            BENEFACTOR_ID = '1681355' OR
-            PARENT_ID = '1681355'
-        ) and
-        project_id in (
-            27229419,
-            52072575,
-            52072939,
-            52237024,
-            52642213,
-            53124793
-        )
-)
-SELECT
-    count(distinct elite_latest.id) as total_entities,
-    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 40), 2) AS TOTAL_SIZE_IN_TIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 12), 2) AS TOTAL_SIZE_IN_TB
-FROM
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
-join
-    elite_latest
-    on file_latest.id = elite_latest.file_handle_id;
-
-// AMP-ALS
-
 with node_latest_before_2025_08_01 as (
     select
         *
@@ -620,23 +657,44 @@ with node_latest_before_2025_08_01 as (
     from
         node_latest_before_2025_08_01
     WHERE
-        project_id = 64892175 and
         NOT (
             CHANGE_TYPE = 'DELETE' OR
             BENEFACTOR_ID = '1681355' OR
             PARENT_ID = '1681355'
+        ) and
+        project_id in (
+            27229419,
+            52072575,
+            52072939,
+            52237024,
+            52642213,
+            53124793
         )
+), file_stats as (
+    SELECT
+        CONCAT(BUCKET, '/', KEY) as S3_URL,
+        CONTENT_MD5,
+        project_latest.is_public,
+        max(file_latest.content_size) AS MAX_FILE_SIZE,
+    FROM
+        SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
+    join
+        project_latest
+        on file_latest.id = project_latest.file_handle_id
+    GROUP BY
+        S3_URL, CONTENT_MD5, project_latest.is_public
 )
-SELECT
-    count(distinct project_latest.id) as total_entities,
-    count(distinct FILE_LATEST.ID) as TOTAL_FILES,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(2, 30), 2) AS TOTAL_SIZE_IN_GIB,
-    round(sum(FILE_LATEST.CONTENT_SIZE) / power(10, 9), 2) AS TOTAL_SIZE_IN_GB
-FROM
-    SYNAPSE_DATA_WAREHOUSE.SYNAPSE.FILE_LATEST
-join
-    project_latest
-    on file_latest.id = project_latest.file_handle_id;
+select
+    sum(max_file_size) / power(10, 12) as size_in_tb,
+    SUM(CASE WHEN is_public THEN max_file_size ELSE 0 END) / POWER(10, 12) AS public_size_tb,
+    (
+        select
+            SUM(CASE WHEN project_latest.annotations:annotations != {} and is_public THEN 1 ELSE 0 END) / count(*)
+        from
+            project_latest
+    ) as percent_annotated
+from
+    file_stats;
 
 // 2.5.3 Portals
 // Table 4: unique data downloaders 1/1/2022 - 7/31/2025
