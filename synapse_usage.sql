@@ -312,7 +312,7 @@ group by
 --     project_id = 51364943 and
 --     record_date BETWEEN DATE('2024-01-01') AND DATE('2024-12-31');
 
-// Interoperability via Programmatic Access
+// Interoperability via Programmatic Access downloads
 select
     CASE
         WHEN access_event.client in ('PYTHON', 'COMMAND_LINE', 'SYNAPSER') THEN 'API_CLIENT'
@@ -335,6 +335,55 @@ where
     access_event.client not in ('JAVA', 'UNKNOWN')
 group by
     client_agg;
+
+
+
+// Interoperability via Programmatic Access uploads
+-- This query is used to cross validate the
+-- number of uploaders since session_id isn't made available
+-- in this table
+-- select
+--     count(distinct user_id) as number_of_uploaders
+-- from
+--     synapse_data_warehouse.synapse_event.fileupload_event
+-- where
+--     YEAR(record_date) = ($YEAR_ANCHOR - 1);
+select
+    CASE
+        WHEN access_event.client in ('PYTHON', 'COMMAND_LINE', 'SYNAPSER') THEN 'API_CLIENT'
+        ELSE access_event.client
+    END client_agg,
+    count(access_event.record_date) as number_of_uploads,
+    count(distinct access_event.user_id) as number_of_users,
+    sum(file_latest.content_size) / power(2, 40) as tib_uploaded
+from
+    synapse_data_warehouse.synapse_event.access_event
+join
+    synapse_data_warehouse.synapse.node_latest on
+    replace(access_event.return_object_id, 'syn', '') = node_latest.id
+join
+    synapse_data_warehouse.synapse.file_latest on
+    node_latest.file_handle_id = file_latest.id
+where
+    YEAR(access_event.record_date) = ($YEAR_ANCHOR - 1) and
+    access_event.client not in ('JAVA', 'UNKNOWN') and
+    access_event.normalized_method_signature = 'POST /entity' and
+    node_latest.node_type = 'file'
+group by
+    client_agg;
+
+-- Once all parts have been successfully added to the multi-part copy,
+-- the copy can be completed using: PUT /file/multipart/{uploadId}/complete to produce a new FileHandle
+-- but unfortunately, this query doesn't return any synapse identifiers
+-- that can be used to assess the data content.
+-- select
+--    access_event.client
+-- from
+--     synapse_data_warehouse.synapse_event.access_event
+-- where
+--     access_event.record_date = DATE('2026-01-01') and
+--     access_event.client not in ('JAVA', 'UNKNOWN') and
+--     access_event.normalized_method_signature = 'PUT /file/multipart/#/complete';
 
 
 // 2.5.3 Portals
