@@ -171,10 +171,41 @@ select
 from
     all_non_deleted_nodes_before_date;
 
+// Metadata percentage
+with node_latest_before_date_anchor as (
+    select
+        *
+    from
+        synapse_data_warehouse.synapse_event.node_event
+    where
+        modified_on < $DATE_ANCHOR and
+        snapshot_date >= $DATE_ANCHOR - interval '30 days' and
+        node_type = 'file'
+    qualify row_number() over (
+        partition by id
+        order by change_timestamp desc, snapshot_timestamp desc
+    ) = 1
+), all_non_deleted_nodes_before_date as (
+    select
+        *
+    from
+        node_latest_before_date_anchor
+    WHERE
+        NOT (
+            CHANGE_TYPE = 'DELETE' OR
+            BENEFACTOR_ID = '1681355' OR
+            PARENT_ID = '1681355'
+        )
+)
+select
+    sum(CASE
+        WHEN annotations:annotations != {} AND is_public
+        THEN 1
+        ELSE 0
+    END) / count(*) * 100 AS percent_annotated
+from
+    all_non_deleted_nodes_before_date;
 // 2.3 Synapse’s data governance infrastructure
-// Upload csv from get_access_requirements.py into snowflake
-// access approval distribution
-
 select
     submission_status,
     count(*) as number_of_access_approvals
@@ -207,16 +238,12 @@ where
 group by
     submission_status;
 
-select
-    state,
-    count(*) as number_of_access_approvals
-from
-    sage.scidata.access_approvals
-group by
-    state;
 
--- // 2.3 Synapse’s data governance infrastructure
--- // Number of renewal submissions
+// 2.3 Synapse’s data governance infrastructure
+// OLD METHOD
+// Upload csv from get_access_requirements.py into snowflake
+// access approval distribution
+// Number of renewal submissions
 -- SELECT
 --     SUM(
 --         CASE
@@ -226,8 +253,8 @@ group by
 --     ) AS total_true
 -- fromsage.scidata.access_approvals;
 
--- // 2.3 Synapse’s data governance infrastructure
--- // Detailed access approval table
+// 2.3 Synapse’s data governance infrastructure
+// Detailed access approval table
 -- SELECT
 --     ACCESSREQUIREMENT_LATEST.NAME,
 --     ACCESSREQUIREMENT_LATEST.CONCRETE_TYPE,
@@ -244,8 +271,8 @@ group by
 --     SYNAPSE_DATA_WAREHOUSE.SYNAPSE.ACCESSREQUIREMENT_LATEST
 --     ON ACCESS_APPROVALS.ACCESSREQUIREMENTID = ACCESSREQUIREMENT_LATEST.ID;
 
--- // 2.3 Synapse’s data governance infrastructure
--- // Institution distribution of access approvals
+// 2.3 Synapse’s data governance infrastructure
+// Institution distribution of access approvals
 -- select
 --     ACCESS_APPROVALS.researchProjectSnapshot:institution as institution,
 --     count(*) as number_of_access_approvals
@@ -254,8 +281,8 @@ group by
 -- group by
 --     institution;
 
--- // 2.3 Synapse’s data governance infrastructure
--- // Number of access approvals by access requirement
+// 2.3 Synapse’s data governance infrastructure
+// Number of access approvals by access requirement
 -- SELECT
 --     ACCESSREQUIREMENT_LATEST.NAME,
 --     ACCESSREQUIREMENT_LATEST.ID,
@@ -291,8 +318,8 @@ group by
 --     project_id = 51364943 and
 --     record_date BETWEEN DATE('2023-10-01') AND DATE('2023-11-30');
 
--- // 2.4.3 The cost of reuse: data egress
--- // UKB data users and volume 2024
+// 2.4.3 The cost of reuse: data egress
+// UKB data users and volume 2024
 -- select
 --     count(distinct user_id)
 -- from
