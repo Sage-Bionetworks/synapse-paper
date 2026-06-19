@@ -413,6 +413,18 @@ group by
 --     access_event.normalized_method_signature = 'PUT /file/multipart/#/complete';
 
 
+// Challenge metrics
+select
+    challenge.id,
+    node_latest.name,
+    node_latest.created_by,
+    node_latest.created_on
+from
+    synapse_rds_snapshot.prod_588.challenge
+join
+    synapse_data_warehouse.synapse.node_latest on
+    challenge.project_id = node_latest.id;
+
 // 2.5.3 Portals
 // Table 4: storage volume before date anchor
 // ADTR
